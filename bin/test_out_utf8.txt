@@ -1,0 +1,59 @@
+﻿python : Traceback (most 
+recent call last):
+At line:1 char:1
++ python test_dashboard.py > 
+test_dashboard_output.txt 
+2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~
+    + CategoryInfo           
+   : NotSpecified: (Traceba  
+  ck (most recent call las   
+ t)::String) [], RemoteEx    
+ception
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+  File "C:\web new 26\scholar
+ship-ai\test_dashboard.py", 
+line 4, in <module>
+    from app.core.database 
+import SessionLocal
+  File "C:\web new 26\scholar
+ship-ai\app\core\database.py"
+, line 4, in <module>
+    from app.core.config 
+import settings
+  File "C:\web new 26\scholar
+ship-ai\app\core\config.py", 
+line 35, in <module>
+    settings = Settings()
+  File "C:\Users\Asus\AppData
+\Local\Programs\Python\Python
+310\lib\site-packages\pydanti
+c_settings\main.py", line 
+71, in __init__
+    super().__init__(
+  File "C:\Users\Asus\AppData
+\Local\Programs\Python\Python
+310\lib\site-packages\pydanti
+c\main.py", line 164, in 
+__init__
+    __pydantic_self__.__pydan
+tic_validator__.validate_pyth
+on(data, self_instance=__pyda
+ntic_self__)
+pydantic_core._pydantic_core.
+ValidationError: 1 
+validation error for Settings
+HUGGINGFACE_API_KEY
+  Extra inputs are not 
+permitted 
+[type=extra_forbidden, input_
+value='hf_PwMmpqODKFhDvuRcSrW
+pMddAhipEnuljvB', 
+input_type=str]
+    For further information 
+visit https://errors.pydantic
+.dev/2.5/v/extra_forbidden

@@ -1,0 +1,13 @@
+[project]
+name = "scholarship-ai"
+version = "1.0.0"
+description = "Agentic AI System for Scholarship Management"
+requires-python = ">=3.9"
+
+[tool.setuptools.packages.find]
+include = ["app*", "heavy_server*"]
+
+[tool.pyright]
+pythonVersion = "3.9"
+venvPath = "."
+extraPaths = ["."]
