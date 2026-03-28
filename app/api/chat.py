@@ -55,3 +55,6 @@ def get_chat_history(student_id: int, limit: int = 10, db: Session = Depends(get
     chat_service = ChatService(db)
     history = chat_service.get_conversation_context(student_id, limit=limit)
     return {"history": history}
+
+
+

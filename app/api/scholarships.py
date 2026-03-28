@@ -21,7 +21,7 @@ def get_scholarship(scholarship_id: int, db: Session = Depends(get_db)):
     scholarship = db.query(Scholarship).filter(Scholarship.id == scholarship_id).first()
     if not scholarship:
         raise HTTPException(status_code=404, detail="Scholarship not found")
-    return scholarship
+    return scholarshipz1
 
 
 @router.post("/", response_model=ScholarshipResponse)

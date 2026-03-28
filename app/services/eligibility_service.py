@@ -20,12 +20,11 @@ class EligibilityService:
         if not scholarships:
             return self._check_hardcoded_eligibility(student_data)
 
-        import google.generativeai as genai
+        from google import genai
         from app.core.config import settings
         import json
 
-        genai.configure(api_key=settings.GOOGLE_API_KEY)
-        model = genai.GenerativeModel("gemini-2.5-flash", generation_config={"response_mime_type": "application/json"})
+        client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
         scholarship_list = []
         for s in scholarships:
@@ -58,7 +57,9 @@ Scholarships:
 """
 
         try:
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model="gemini-2.0-flash", contents=prompt
+            )
             results = json.loads(response.text)
             eligible = []
             for item in results:
@@ -82,132 +83,181 @@ Scholarships:
         results = []
 
         # SC | SCA | ST | SCC Scholarships
+        score = 100
+        reasons = []
         if student.category and student.category.upper() in ["SC", "SCA", "ST", "SCC"]:
-            score = 100
-            reasons = ["✓ You belong to SC/SCA/ST/SCC category"]
-            if student.family_income and student.family_income <= 250000:
-                reasons.append("✓ Family income is below ₹2.5 Lakhs")
-                score += 0
-            else:
-                reasons.append(
-                    f"✗ Family income must be below ₹2.5 Lakhs (Your: {student.family_income or 'Not provided'})"
-                )
-                score -= 20
+            reasons.append("✓ You belong to SC/SCA/ST/SCC category")
+        else:
+            reasons.append(f"✗ Category must be SC/SCA/ST/SCC (Your: {student.category or 'Not provided'})")
+            score -= 100
 
-            results.append(
-                EligibilityScholar(
-                    scholarship_id=0,
-                    scholarship_name="SC | SCA | ST | SCC Scholarships (Tamil Nadu)",
-                    eligibility_score=min(score, 100),
-                    reasons=reasons,
-                )
+        if student.family_income and student.family_income <= 250000:
+            reasons.append("✓ Family income is below ₹2.5 Lakhs")
+        else:
+            reasons.append(f"✗ Family income must be below ₹2.5 Lakhs (Your: {student.family_income or 'Not provided'})")
+            score -= 20
+
+        results.append(
+            EligibilityScholar(
+                scholarship_id=0,
+                scholarship_name="SC | SCA | ST | SCC Scholarships (Tamil Nadu)",
+                eligibility_score=max(0, min(score, 100)),
+                reasons=reasons,
             )
+        )
 
         # BC | MBC | DNC Scholarships
+        score = 100
+        reasons = []
         if student.category and student.category.upper() in ["BC", "MBC", "DNC"]:
-            score = 100
-            reasons = ["✓ You belong to BC/MBC/DNC category"]
-            if student.family_income and student.family_income <= 250000:
-                reasons.append("✓ Family income is below ₹2.5 Lakhs")
-            else:
-                reasons.append(
-                    f"✗ Family income must be below ₹2.5 Lakhs (Your: {student.family_income or 'Not provided'})"
-                )
-                score -= 30
+            reasons.append("✓ You belong to BC/MBC/DNC category")
+        else:
+            reasons.append(f"✗ Category must be BC/MBC/DNC (Your: {student.category or 'Not provided'})")
+            score -= 100
 
-            results.append(
-                EligibilityScholar(
-                    scholarship_id=0,
-                    scholarship_name="BC | MBC | DNC Scholarships (Tamil Nadu)",
-                    eligibility_score=min(score, 100),
-                    reasons=reasons,
-                )
+        if student.family_income and student.family_income <= 250000:
+            reasons.append("✓ Family income is below ₹2.5 Lakhs")
+        else:
+            reasons.append(f"✗ Family income must be below ₹2.5 Lakhs (Your: {student.family_income or 'Not provided'})")
+            score -= 30
+
+        results.append(
+            EligibilityScholar(
+                scholarship_id=0,
+                scholarship_name="BC | MBC | DNC Scholarships (Tamil Nadu)",
+                eligibility_score=max(0, min(score, 100)),
+                reasons=reasons,
             )
+        )
 
-        # AICTE Scholarships
-        if (
-            student.year
-            and student.year in [1, 2]
-            and student.gpa
-            and student.gpa >= 6.0
-        ):
-            reasons = ["✓ Enrolled in 1st or 2nd year technical course"]
-            score = 80
+        # AICTE Pragati
+        score = 80
+        reasons = []
+        if student.year and student.year in [1, 2] and student.gpa and student.gpa >= 6.0:
+            reasons.append("✓ Enrolled in 1st/2nd year with minimum GPA")
+        else:
+            reasons.append(f"✗ Requires 1st/2nd year & GPA >= 6.0 (Your Year: {student.year or '?'}, GPA: {student.gpa or '?'})")
+            score -= 100
 
-            if student.family_income and student.family_income <= 800000:
-                reasons.append("✓ Family income is below ₹8 Lakhs")
-            else:
-                reasons.append(
-                    f"✗ Family income must be below ₹8 Lakhs (Your: {student.family_income or 'Not provided'})"
-                )
-                score -= 20
+        if student.family_income and student.family_income <= 800000:
+            reasons.append("✓ Family income is below ₹8 Lakhs")
+        else:
+            reasons.append(f"✗ Family income must be below ₹8 Lakhs (Your: {student.family_income or 'Not provided'})")
+            score -= 20
 
-            if student.gender and student.gender.lower() == "female":
-                results.append(
-                    EligibilityScholar(
-                        scholarship_id=0,
-                        scholarship_name="AICTE – Pragati Scholarship (For Girls)",
-                        eligibility_score=min(score, 100),
-                        reasons=reasons + ["✓ You are a female student"],
-                    )
-                )
+        if student.gender and student.gender.lower() == "female":
+            reasons.append("✓ You are a female student")
+            score += 20
+        else:
+            reasons.append("✗ Must be a female student")
+            score -= 100
 
-            results.append(
-                EligibilityScholar(
-                    scholarship_id=0,
-                    scholarship_name="AICTE – Saksham Scholarship (For Specially Abled)",
-                    eligibility_score=min(score - 30, 100),
-                    reasons=reasons + ["Note: Requires 40%+ disability certificate"],
-                )
+        results.append(
+            EligibilityScholar(
+                scholarship_id=0,
+                scholarship_name="AICTE – Pragati Scholarship (For Girls)",
+                eligibility_score=max(0, min(score, 100)),
+                reasons=reasons,
             )
+        )
 
-        # Private Scholarships
+        # AICTE Saksham
+        score = 70
+        reasons = []
+        if student.year and student.year in [1, 2] and student.gpa and student.gpa >= 6.0:
+            reasons.append("✓ Enrolled in 1st/2nd year with minimum GPA")
+        else:
+            reasons.append(f"✗ Requires 1st/2nd year & GPA >= 6.0 (Your Year: {student.year or '?'}, GPA: {student.gpa or '?'})")
+            score -= 100
+
+        if student.family_income and student.family_income <= 800000:
+            reasons.append("✓ Family income is below ₹8 Lakhs")
+        else:
+            reasons.append(f"✗ Family income must be below ₹8 Lakhs (Your: {student.family_income or 'Not provided'})")
+            score -= 20
+
+        reasons.append("Note: Requires 40%+ disability certificate")
+
+        results.append(
+            EligibilityScholar(
+                scholarship_id=0,
+                scholarship_name="AICTE – Saksham Scholarship (For Specially Abled)",
+                eligibility_score=max(0, min(score, 100)),
+                reasons=reasons,
+            )
+        )
+
+        # Private Scholarships (Aspire)
+        score = 100
+        reasons = []
         if student.gpa and student.gpa >= 7.0:
-            reasons = ["✓ GPA meets minimum requirement"]
-            score = 100
+            reasons.append("✓ GPA meets minimum requirement (7.0)")
+        else:
+            reasons.append(f"✗ GPA must be at least 7.0 (Your: {student.gpa or 'Not provided'})")
+            score -= 100
 
-            if student.department and any(
-                dept in student.department.upper()
-                for dept in ["CSE", "IT", "ECE", "EEE"]
-            ):
-                results.append(
-                    EligibilityScholar(
-                        scholarship_id=0,
-                        scholarship_name="Aspire - Harihara Subramanian Scholarship",
-                        eligibility_score=min(score, 100),
-                        reasons=reasons
-                        + ["✓ You are from eligible department (CSE/IT/ECE/EEE)"],
-                    )
-                )
+        if student.department and any(dept in student.department.upper() for dept in ["CSE", "IT", "ECE", "EEE"]):
+            reasons.append(f"✓ You are from eligible department ({student.department})")
+        else:
+            reasons.append(f"✗ Must be from CSE/IT/ECE/EEE (Your: {student.department or 'Not provided'})")
+            score -= 100
 
-        if student.family_income and student.family_income <= 1500000:
-            results.append(
-                EligibilityScholar(
-                    scholarship_id=0,
-                    scholarship_name="Reliance Foundation Undergraduate Scholarship",
-                    eligibility_score=70 if student.family_income > 250000 else 100,
-                    reasons=[
-                        "✓ Family income meets requirement"
-                        if student.family_income <= 1500000
-                        else "✗ Income too high"
-                    ],
-                )
+        results.append(
+            EligibilityScholar(
+                scholarship_id=0,
+                scholarship_name="Aspire - Harihara Subramanian Scholarship",
+                eligibility_score=max(0, min(score, 100)),
+                reasons=reasons,
             )
+        )
 
-        if (
-            student.gender
-            and student.gender.lower() == "female"
-            and student.family_income
-            and student.family_income <= 800000
-        ):
-            results.append(
-                EligibilityScholar(
-                    scholarship_id=0,
-                    scholarship_name="Infosys Foundation STEM Stars Scholarship",
-                    eligibility_score=80,
-                    reasons=["✓ Female student", "✓ Income below ₹8 Lakhs"],
-                )
+        # Reliance Foundation
+        score = 100
+        reasons = []
+        if student.family_income:
+            if student.family_income <= 1500000:
+                reasons.append("✓ Family income meets requirement (<=15 Lakhs)")
+                if student.family_income > 250000:
+                    score = 70
+            else:
+                reasons.append(f"✗ Family income must be <= 15 Lakhs (Your: {student.family_income})")
+                score = 0
+        else:
+            reasons.append("✗ Family income not provided")
+            score = 0
+
+        results.append(
+            EligibilityScholar(
+                scholarship_id=0,
+                scholarship_name="Reliance Foundation Undergraduate Scholarship",
+                eligibility_score=score,
+                reasons=reasons,
             )
+        )
+
+        # Infosys Foundation
+        score = 100
+        reasons = []
+        if student.gender and student.gender.lower() == "female":
+             reasons.append("✓ Female student")
+        else:
+             reasons.append("✗ Must be a female student")
+             score -= 100
+
+        if student.family_income and student.family_income <= 800000:
+             reasons.append("✓ Income below ₹8 Lakhs")
+        else:
+             reasons.append(f"✗ Income must be below ₹8 Lakhs (Your: {student.family_income or 'Not provided'})")
+             score -= 50
+
+        results.append(
+            EligibilityScholar(
+                scholarship_id=0,
+                scholarship_name="Infosys Foundation STEM Stars Scholarship",
+                eligibility_score=max(0, min(score, 100)),
+                reasons=reasons,
+            )
+        )
 
         return results
 

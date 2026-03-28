@@ -658,7 +658,7 @@
                         <span class="score-badge ${scoreClass}">${matchText}</span>
                         <h4>${s.scholarship_name}</h4>
                         <ul style="margin-left: 20px; margin-top: 10px;">
-                            ${s.reasons.map(r => `<li style="color: ${r.includes('❌') ? '#d32f2f' : '#2e7d32'}; margin-bottom: 5px;">${r}</li>`).join('')}
+                            ${s.reasons.map(r => `<li style="color: ${r.includes('❌') || r.includes('✗') ? '#d32f2f' : '#2e7d32'}; margin-bottom: 5px;">${r}</li>`).join('')}
                         </ul>
                     </div>
                 `;

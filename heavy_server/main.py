@@ -8,7 +8,7 @@ from typing import List, Dict, Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 import pdfplumber
-import google.generativeai as genai
+from google import genai
 
 # Use path trick to import ChromaWrapper from the app folder
 import sys
@@ -23,7 +23,7 @@ app = FastAPI(title="Heavy Server - GPU Processing")
 vector_db = ChromaWrapper(path=settings.CHROMA_GEMINI_DB_PATH)
 
 # Configure Gemini
-genai.configure(api_key=settings.GOOGLE_API_KEY)
+client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
 
 class DocumentInput(BaseModel):
@@ -214,8 +214,9 @@ Format your response like this (use line breaks for readability, NOT paragraphs)
 If information is not available, write "Not specified" for that field."""
 
         try:
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model="gemini-2.0-flash", contents=prompt
+            )
         except Exception as e:
             error_msg = str(e)
             if "image" in error_msg.lower() and "does not support" in error_msg.lower():
