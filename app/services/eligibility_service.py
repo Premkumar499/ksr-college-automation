@@ -1,6 +1,6 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
-from app.models.database import Scholarship, Student, EligibilityCheck
+from app.models.database import Scholarship, EligibilityCheck
 from app.schemas.scholarship import StudentCreate, EligibilityScholar
 
 
@@ -11,37 +11,69 @@ class EligibilityService:
     def check_eligibility(
         self, student_data: StudentCreate, scholarship_ids: Optional[List[int]] = None
     ) -> List[EligibilityScholar]:
-        """Check which scholarships a student is eligible for"""
-
-        # Get scholarships to check
-        query = self.db.query(Scholarship).filter(Scholarship.is_active == True)
+        """Check which scholarships a student is eligible for using Gemini LLM"""
+        query = self.db.query(Scholarship)
         if scholarship_ids:
             query = query.filter(Scholarship.id.in_(scholarship_ids))
         scholarships = query.all()
 
-        eligible = []
+        if not scholarships:
+            return self._check_hardcoded_eligibility(student_data)
 
-        for scholarship in scholarships:
-            score, reasons = self._evaluate_scholarship(scholarship, student_data)
+        import google.generativeai as genai
+        from app.core.config import settings
+        import json
 
-            if score >= 50:  # 50% threshold for eligibility
+        genai.configure(api_key=settings.GOOGLE_API_KEY)
+        model = genai.GenerativeModel("gemini-2.5-flash", generation_config={"response_mime_type": "application/json"})
+
+        scholarship_list = []
+        for s in scholarships:
+            scholarship_list.append({
+                "id": s.id,
+                "scheme_name": s.scheme_name,
+                "criteria": s.eligibility_criteria,
+                "category": s.category,
+                "application_link": s.application_link
+            })
+
+        prompt = f"""You are an expert scholarship eligibility evaluator.
+Given a student's profile and a list of internal scholarships with criteria, evaluate whether the student is eligible for EACH scholarship.
+Output a JSON array where each item matches exactly this format:
+{{
+  "scholarship_id": <int>,
+  "scholarship_name": "<string (use scheme_name)>",
+  "eligibility_score": <int between 0 and 100>,
+  "reasons": ["<string starting with ✓ if passing, or ❌ if failing>"]
+}}
+Score 100 if they technically meet all explicitly required criteria. 
+Score 0 if they definitively fail a criteria (e.g. wrong gender, GPA below requirement, family income strictly higher than requirement).
+Provide specific reasons referencing the student's metrics.
+
+Student Profile:
+{student_data.model_dump_json()}
+
+Scholarships:
+{json.dumps(scholarship_list)}
+"""
+
+        try:
+            response = model.generate_content(prompt)
+            results = json.loads(response.text)
+            eligible = []
+            for item in results:
                 eligible.append(
                     EligibilityScholar(
-                        scholarship_id=scholarship.id,
-                        scholarship_name=scholarship.name,
-                        eligibility_score=score,
-                        reasons=reasons,
+                        scholarship_id=item.get("scholarship_id", 0),
+                        scholarship_name=item.get("scholarship_name", "Unknown"),
+                        eligibility_score=item.get("eligibility_score", 0),
+                        reasons=item.get("reasons", []),
                     )
                 )
-
-        # Sort by eligibility score
-        eligible.sort(key=lambda x: x.eligibility_score, reverse=True)
-
-        # If no scholarships in DB, use hardcoded rules
-        if not eligible and scholarships == []:
-            eligible = self._check_hardcoded_eligibility(student_data)
-
-        return eligible
+            return sorted(eligible, key=lambda x: x.eligibility_score, reverse=True)
+        except Exception as e:
+            print(f"LLM Parsing error: {e}")
+            return self._check_hardcoded_eligibility(student_data)
 
     def _check_hardcoded_eligibility(
         self, student: StudentCreate

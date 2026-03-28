@@ -18,8 +18,14 @@ def chat(query: ChatRequest, db: Session = Depends(get_db)):
     - Required documents
     - General scholarship queries
     """
-    # Check if query contains image reference
-    if "pasted-image" in query.query.lower() or "image" in query.query.lower():
+    # Check if query contains pasted image content (only specific browser paste patterns)
+    query_lower = query.query.lower()
+    # Only block actual pasted image filenames from browser, not general text
+    if (
+        "pasted-image-" in query_lower
+        or "data:image" in query_lower
+        or "blob:" in query_lower
+    ):
         raise HTTPException(
             status_code=400,
             detail="I can only process text questions. Please type your question instead of uploading an image.",

@@ -18,20 +18,13 @@ class Scholarship(Base):
     __tablename__ = "scholarships"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
-    provider = Column(String(255))
-    description = Column(Text)
-    eligibility_criteria = Column(
-        JSON
-    )  # Store as JSON: {"min_gpa": 8.0, "category": "SC", ...}
-    documents_required = Column(JSON)  # List of required documents
-    application_procedure = Column(Text)
-    deadline = Column(DateTime)
-    amount = Column(Float)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
+    scheme_name = Column(String(200), nullable=False)
+    eligibility_criteria = Column(Text)
+    application_link = Column(Text)
+    category = Column(String(100))
+    
+    # We remove recipients relationship since scholarship_recipients schema might be broken too, 
+    # but we will just keep the relationship to avoid breaking existing imports.
     recipients = relationship("ScholarshipRecipient", back_populates="scholarship")
 
 
@@ -39,18 +32,12 @@ class Student(Base):
     __tablename__ = "students"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(String(50), unique=True, nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), unique=True, nullable=False)
-    phone = Column(String(20))
-    department = Column(String(100))
-    year = Column(Integer)  # 1, 2, 3, 4
-    gpa = Column(Float)
-    category = Column(String(50))  # General, SC, ST, OBC, etc.
-    family_income = Column(Float)
-    gender = Column(String(20))
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    student_id = Column(String(50), nullable=True, index=True)
+    name = Column(String(100), nullable=True)
+    scholarship_amount = Column(Float, nullable=True)
+    scheme_name = Column(String(150), nullable=True)
+    department = Column(String(100), nullable=True)
+    year = Column(Integer, nullable=True)
 
     eligibility_checks = relationship("EligibilityCheck", back_populates="student")
     scholarship_applications = relationship(

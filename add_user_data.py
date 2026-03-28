@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 
@@ -119,29 +118,35 @@ Applicants must have an annual family income of less than or equal to ₹ 8,00,0
 Application Link : https://www.buddy4study.com/page/infosys-stem-stars-scholarship  
 """
 
+
 def chunk_data():
     documents = []
     blocks = raw_text.split("📝 ")
     for block in blocks:
         if not block.strip():
             continue
-        
+
         lines = block.strip().split("\n")
         title = lines[0].strip()
-        
+
         if "National Scholarship Portal" in title:
             # Sub chunk NSP
             nsp_chunks = block.split("📌 ")
-            for sub in nsp_chunks[1:]: # skip first which is just the header
+            for sub in nsp_chunks[1:]:  # skip first which is just the header
                 sub_lines = sub.strip().split("\n")
                 sub_title = sub_lines[0].strip()
                 content = sub.strip()
-                documents.append({
-                    "content": "Category: National Scholarship Portal\nScholarship: " + sub_title + "\n" + content,
-                    "source": "Provided Texts",
-                    "scholarship_name": sub_title,
-                    "doc_type": "scholarship_info"
-                })
+                documents.append(
+                    {
+                        "content": "Category: National Scholarship Portal\nScholarship: "
+                        + sub_title
+                        + "\n"
+                        + content,
+                        "source": "Provided Texts",
+                        "scholarship_name": sub_title,
+                        "doc_type": "scholarship_info",
+                    }
+                )
         elif "Private Scholarships" in title:
             # Sub chunk Private
             priv_chunks = block.split("\n\n")
@@ -149,25 +154,33 @@ def chunk_data():
                 if len(chunk.strip()) > 10:
                     priv_lines = chunk.strip().split("\n")
                     sub_title = priv_lines[0].strip()
-                    documents.append({
-                        "content": "Category: Private Scholarships\nScholarship: " + sub_title + "\n" + chunk.strip(),
-                        "source": "Provided Texts",
-                        "scholarship_name": sub_title,
-                        "doc_type": "scholarship_info"
-                    })
+                    documents.append(
+                        {
+                            "content": "Category: Private Scholarships\nScholarship: "
+                            + sub_title
+                            + "\n"
+                            + chunk.strip(),
+                            "source": "Provided Texts",
+                            "scholarship_name": sub_title,
+                            "doc_type": "scholarship_info",
+                        }
+                    )
         elif "Management Scholarships" in title:
-            pass # ignore waiting
+            pass  # ignore waiting
         else:
-            documents.append({
-                "content": "Scholarship Category: " + title + "\n" + block.strip(),
-                "source": "Provided Texts",
-                "scholarship_name": title,
-                "doc_type": "scholarship_info"
-            })
-            
+            documents.append(
+                {
+                    "content": "Scholarship Category: " + title + "\n" + block.strip(),
+                    "source": "Provided Texts",
+                    "scholarship_name": title,
+                    "doc_type": "scholarship_info",
+                }
+            )
+
     print(f"Generated {len(documents)} chunks.")
     rag_service.add_documents(documents)
     print("Added to FAISS DB!")
+
 
 if __name__ == "__main__":
     chunk_data()

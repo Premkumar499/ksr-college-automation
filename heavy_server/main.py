@@ -4,28 +4,26 @@ Runs on GPU for faster embeddings and AI processing
 """
 
 import os
-import json
 from typing import List, Dict, Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 import pdfplumber
-from google import genai
+import google.generativeai as genai
 
-# Use path trick to import FaissDB from the app folder
+# Use path trick to import ChromaWrapper from the app folder
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.core.config import settings
-from app.services.faiss_db import FaissDB
+from app.services.chroma_db import ChromaWrapper
 
 app = FastAPI(title="Heavy Server - GPU Processing")
 
-# Initialize FAISS - Gemini text embedding produces 768 dimensions
-faiss_db = FaissDB(path=settings.FAISS_DB_PATH, dim=768)
+# Initialize Chroma - Gemini text embedding
+vector_db = ChromaWrapper(path=settings.CHROMA_GEMINI_DB_PATH)
 
 # Configure Gemini
-if settings.GOOGLE_API_KEY:
-    gemini_client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+genai.configure(api_key=settings.GOOGLE_API_KEY)
 
 
 class DocumentInput(BaseModel):
@@ -46,10 +44,6 @@ async def index_documents(documents: List[DocumentInput]):
     """Index documents into the vector database"""
     try:
         texts = [doc.content for doc in documents]
-        result = genai.embed_content(model="models/embedding-001", content=texts)
-        embeddings = result["embedding"]
-        if len(texts) == 1 and not isinstance(embeddings[0], list):
-            embeddings = [embeddings]
 
         metadatas = [
             {
@@ -59,8 +53,7 @@ async def index_documents(documents: List[DocumentInput]):
             }
             for doc in documents
         ]
-
-        faiss_db.add(embeddings=embeddings, documents=texts, metadatas=metadatas)
+        vector_db.add(documents=texts, metadatas=metadatas)
         return {"status": "success", "indexed": len(documents)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -85,10 +78,7 @@ async def index_pdf(file: UploadFile = File(...), scholarship_name: str = "Unkno
 
         full_text = "\n\n".join(text_content)
 
-        result = genai.embed_content(model="models/embedding-001", content=full_text)
-
-        faiss_db.add(
-            embeddings=[result["embedding"]],
+        vector_db.add(
             documents=[full_text],
             metadatas=[
                 {
@@ -147,10 +137,6 @@ async def index_excel(file: UploadFile = File(...)):
 
         if documents:
             texts = [doc["content"] for doc in documents]
-            result = genai.embed_content(model="models/embedding-001", content=texts)
-            embeddings = result["embedding"]
-            if len(texts) == 1 and not isinstance(embeddings[0], list):
-                embeddings = [embeddings]
             metadatas = [
                 {
                     "source": doc["source"],
@@ -159,7 +145,7 @@ async def index_excel(file: UploadFile = File(...)):
                 }
                 for doc in documents
             ]
-            faiss_db.add(embeddings=embeddings, documents=texts, metadatas=metadatas)
+            vector_db.add(documents=texts, metadatas=metadatas)
 
         os.remove(tmp_path)
 
@@ -172,11 +158,7 @@ async def index_excel(file: UploadFile = File(...)):
 async def query_vector_db(query_input: QueryInput):
     """Query the vector database"""
     try:
-        result = genai.embed_content(
-            model="models/embedding-001", content=query_input.query
-        )
-
-        res = faiss_db.query([result["embedding"]], n_results=query_input.n_results)
+        res = vector_db.query(query_texts=[query_input.query], n_results=query_input.n_results)
         return {
             "query": query_input.query,
             "results": [
@@ -201,10 +183,7 @@ async def generate_response(query_input: QueryInput):
         raise HTTPException(status_code=500, detail="Gemini API not configured")
 
     try:
-        result = genai.embed_content(
-            model="models/embedding-001", content=query_input.query
-        )
-        res = faiss_db.query([result["embedding"]], n_results=5)
+        res = vector_db.query(query_texts=[query_input.query], n_results=5)
 
         context = "\n\n".join(res["documents"][0])
 
@@ -235,9 +214,8 @@ Format your response like this (use line breaks for readability, NOT paragraphs)
 If information is not available, write "Not specified" for that field."""
 
         try:
-            response = gemini_client.models.generate_content(
-                model="gemini-2.0-flash", contents=prompt
-            )
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            response = model.generate_content(prompt)
         except Exception as e:
             error_msg = str(e)
             if "image" in error_msg.lower() and "does not support" in error_msg.lower():
@@ -262,8 +240,8 @@ def get_collection_stats():
     """Get statistics about the indexed collection"""
     try:
         return {
-            "total_documents": faiss_db.count(),
-            "collection_name": faiss_db.get_name(),
+            "total_documents": vector_db.count(),
+            "collection_name": vector_db.get_name(),
             "metadata": {},
         }
     except Exception as e:
@@ -273,13 +251,13 @@ def get_collection_stats():
 @app.delete("/collection/reset")
 def reset_collection():
     """Reset the entire collection"""
-    global faiss_db
+    global vector_db
     import shutil
 
     try:
-        if os.path.exists(settings.FAISS_DB_PATH):
-            shutil.rmtree(settings.FAISS_DB_PATH)
-        faiss_db = FaissDB(path=settings.FAISS_DB_PATH, dim=768)
+        if os.path.exists(settings.CHROMA_GEMINI_DB_PATH):
+            shutil.rmtree(settings.CHROMA_GEMINI_DB_PATH)
+        vector_db = ChromaWrapper(path=settings.CHROMA_GEMINI_DB_PATH)
         return {"status": "Collection reset successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

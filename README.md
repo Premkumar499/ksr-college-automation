@@ -1,67 +1,94 @@
 # Scholarship AI - Agentic AI System for College Scholarship Management
 
-An intelligent web-based application that automates scholarship management using RAG (Retrieval-Augmented Generation) powered by Google Gemini.
+An intelligent web-based application that automates scholarship management using RAG powered by HuggingFace embeddings and intelligent chatbots.
 
 ## Features
 
 ### 1. Chatbot Section
 - AI-powered chatbot for scholarship queries
 - Answers questions about eligibility, documents, procedures
-- Uses RAG to provide accurate responses based on scholarship data
+- Image rejection for text-only queries
 - Maintains conversation history
 
 ### 2. Eligibility Section
-- Students input their details
+- Students input their details (GPA, category, income, etc.)
 - AI analyzes eligibility across all scholarships
 - Shows detailed eligibility score and reasons
-- Saves eligibility check history
+- Supports Tamil Nadu, AICTE, and Private scholarships
 
 ### 3. Dashboard Section
 - Overview statistics (total scholarships, students, disbursed amount)
 - Scholarship-wise breakdown with recipient counts
 - Recent scholarship recipients list
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend (HTML/JS)                    │
-│                    localhost:3000                       │
-└─────────────────────┬───────────────────────────────────┘
-                      │ HTTP
-┌─────────────────────▼───────────────────────────────────┐
-│              Normal Server (CPU)                         │
-│              FastAPI - Port 8000                         │
-│  - API Endpoints                                         │
-│  - Database (PostgreSQL)                                 │
-│  - Request Routing                                       │
-└─────────────────────┬───────────────────────────────────┘
-                      │ Internal
-┌─────────────────────▼───────────────────────────────────┐
-│              Heavy Server (GPU)                         │
-│              FastAPI - Port 8001                        │
-│  - RAG Processing                                        │
-│  - Vector DB (ChromaDB)                                  │
-│  - Embedding Generation                                  │
-│  - AI Inference (Gemini)                                 │
-└─────────────────────────────────────────────────────────┘
-```
-
 ## Tech Stack
 
 - **Backend**: Python, FastAPI
 - **Database**: PostgreSQL
-- **AI/ML**: Google Gemini, ChromaDB, Sentence Transformers
+- **Vector DB**: FAISS
+- **Embeddings**: HuggingFace Sentence Transformers
 - **Frontend**: Vanilla HTML/CSS/JavaScript
-- **RAG**: Custom implementation with ChromaDB
+
+## PostgreSQL Setup with pgAdmin
+
+### Step 1: Install PostgreSQL
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+```
+
+**Start PostgreSQL:**
+```bash
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+### Step 2: Create Database and User
+
+```bash
+sudo -u postgres psql
+```
+
+Then run:
+```sql
+CREATE DATABASE scholarship_db;
+CREATE USER postgres WITH PASSWORD 'postgres';
+GRANT ALL PRIVILEGES ON DATABASE scholarship_db TO postgres;
+\q
+```
+
+### Step 3: Connect pgAdmin
+
+1. Open pgAdmin (http://localhost:5050 or install from https://www.pgadmin.org/)
+2. Right-click on "Servers" → "Create" → "Server"
+3. Fill in details:
+   - **Name**: Scholarship AI
+   - **Host**: localhost
+   - **Port**: 5432
+   - **Database**: scholarship_db
+   - **Username**: postgres
+   - **Password**: postgres
+
+4. Click "Save" to connect
+
+### Step 4: View Tables in pgAdmin
+
+After connecting:
+1. Expand "Scholarship AI" → "Databases" → "scholarship_db"
+2. Expand "Schemas" → "Tables"
+3. You'll see all tables:
+   - scholarships
+   - students
+   - eligibility_checks
+   - scholarship_applications
+   - scholarship_recipients
+   - chat_history
+
+4. Right-click on any table → "View/Edit Data" → "All Rows" to see data
 
 ## Setup Instructions
-
-### Prerequisites
-
-1. Python 3.9+
-2. PostgreSQL 13+
-3. (Optional) GPU with CUDA for heavy server
 
 ### Step 1: Clone and Setup Environment
 
@@ -72,132 +99,118 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Step 2: Configure PostgreSQL
+### Step 2: Configure .env
 
-1. Install PostgreSQL
-2. Create database:
-```sql
-CREATE DATABASE scholarship_db;
-CREATE USER postgres WITH PASSWORD 'postgres';
-GRANT ALL PRIVILEGES ON DATABASE scholarship_db TO postgres;
+Update `.env` file:
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scholarship_db
+HUGGINGFACE_API_KEY=your_huggingface_api_key
+GOOGLE_API_KEY=your_google_api_key
 ```
-
-3. Copy `.env.example` to `.env` and update settings
 
 ### Step 3: Initialize Database
 
 ```bash
-python setup.py
+python setup_postgres.py
 ```
+
+This will:
+- Create the database if it doesn't exist
+- Create all required tables
+- Seed 12 scholarships automatically
 
 ### Step 4: Run the Servers
 
-**Terminal 1 - Normal Server (CPU):**
+**Terminal 1 - Backend API:**
 ```bash
-python -m app.main
+source venv/bin/activate
+PYTHONPATH=. python3 app/main.py
 ```
 
-**Terminal 2 - Heavy Server (GPU):**
+**Terminal 2 - Frontend:**
 ```bash
-python heavy_server/main.py
+cd frontend
+python3 -m http.server 8080
 ```
 
-### Step 5: Open Frontend
+### Step 5: Open in Browser
 
-Open `frontend/index.html` in your browser.
+- **Frontend**: http://127.0.0.1:8080/
+- **API Docs**: http://127.0.0.1:8000/docs
+- **pgAdmin**: http://localhost:5050/
 
 ## API Endpoints
 
-### Scholarships
-- `GET /scholarships/` - List all scholarships
-- `GET /scholarships/{id}` - Get scholarship details
-- `POST /scholarships/` - Create scholarship
-- `PUT /scholarships/{id}` - Update scholarship
-- `DELETE /scholarships/{id}` - Delete scholarship
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /scholarships/ | List all scholarships |
+| GET | /scholarships/{id} | Get scholarship details |
+| POST | /scholarships/ | Create scholarship |
+| PUT | /scholarships/{id} | Update scholarship |
+| DELETE | /scholarships/{id} | Delete scholarship |
+| POST | /chat/ | Chat with AI assistant |
+| GET | /chat/history/{student_id} | Get chat history |
+| POST | /eligibility/check | Check eligibility |
+| GET | /eligibility/history/{student_id} | Get eligibility history |
+| GET | /dashboard/ | Get dashboard statistics |
+| GET | /students/ | List all students |
+| POST | /students/ | Register student |
 
-### Chat
-- `POST /chat/` - Chat with AI assistant
-- `GET /chat/history/{student_id}` - Get chat history
+## Scholarship Data
 
-### Eligibility
-- `POST /eligibility/check` - Check eligibility
-- `GET /eligibility/history/{student_id}` - Get eligibility history
+The system includes 12 pre-configured scholarships:
 
-### Dashboard
-- `GET /dashboard/` - Get dashboard statistics
-- `GET /dashboard/scholarship/{id}/recipients` - Get recipients by scholarship
+**Government of Tamil Nadu:**
+- SC | SCA | ST | SCC Scholarships
+- BC | MBC | DNC Scholarships
+- Pudhumai Penn & Tamil Puthalvan Scheme
 
-### Students
-- `GET /students/` - List all students
-- `GET /students/{id}` - Get student details
-- `POST /students/` - Register student
+**National Scholarship Portal (AICTE):**
+- Swanath Scholarship
+- Saksham Scholarship
+- Pragati Scholarship
+- PM-USP Special Scholarship
+- GATE/CEED Scholarship
 
-## Adding Scholarship Data
-
-### Option 1: Through API
-```python
-import requests
-
-scholarship = {
-    "name": "Merit Scholarship",
-    "provider": "College Trust",
-    "description": "Scholarship for top performers",
-    "eligibility_criteria": {
-        "min_gpa": 8.0,
-        "max_income": 300000
-    },
-    "documents_required": ["Marksheet", "Income Certificate"],
-    "application_procedure": "Apply through college portal",
-    "amount": 40000
-}
-
-requests.post("http://localhost:8000/scholarships/", json=scholarship)
-```
-
-### Option 2: Upload PDF/Excel
-Use the Heavy Server endpoints:
-- `POST /heavy_server/index/pdf` - Upload scholarship PDF
-- `POST /heavy_server/index/excel` - Upload Excel/CSV data
-
-## Configuration
-
-Edit `.env` file:
-
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/scholarship_db
-GOOGLE_API_KEY=your-gemini-api-key
-HEAVY_SERVER_URL=http://localhost:8001
-```
+**Private Scholarships:**
+- Aspire - Harihara Subramanian Scholarship
+- Reliance Foundation Undergraduate Scholarship
+- Reliance Foundation Postgraduate Scholarship
+- Infosys Foundation STEM Stars Scholarship
 
 ## Project Structure
 
 ```
 scholarship-ai/
 ├── app/
-│   ├── api/           # API routes
-│   ├── core/          # Configuration, database
+│   ├── api/           # API routes (chat, scholarships, eligibility, etc.)
+│   ├── core/          # Configuration, database connection
 │   ├── models/        # SQLAlchemy models
 │   ├── schemas/       # Pydantic schemas
-│   ├── services/      # Business logic
-│   ├── utils/         # Utilities
-│   └── main.py        # Normal server entry
-├── heavy_server/
-│   └── main.py        # Heavy server entry (RAG)
+│   ├── services/      # Business logic (RAG, eligibility, chat)
+│   └── main.py       # FastAPI application
 ├── frontend/
 │   └── index.html     # Web interface
 ├── data/
-│   ├── scholarships/  # Scholarship documents
-│   └── embeddings/    # ChromaDB storage
+│   └── embeddings/    # FAISS vector database
+├── bin/               # Unused/test files
+├── setup_postgres.py  # PostgreSQL setup script
+├── add_scholarships.py
+├── add_user_data.py
 ├── requirements.txt
-├── setup.py
 └── README.md
+```
+
+## Adding Test Data
+
+```bash
+# Add scholarships
+python add_scholarships.py
+
+# Index scholarship data for RAG
+python add_user_data.py
 ```
 
 ## License
 
-This is a college project. Feel free to use and modify.
-
-## Authors
-
-College Students - 2026
-# ksr-college-automation
+This is a college project for KSR College Automation - 2026

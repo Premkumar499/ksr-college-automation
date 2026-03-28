@@ -5,12 +5,19 @@ from app.schemas.scholarship import (
     EligibilityCheckRequest,
     EligibilityCheckResponse,
     StudentCreate,
-    StudentResponse,
 )
 from app.services.eligibility_service import EligibilityService
 from app.models.database import Student
 
 router = APIRouter(prefix="/eligibility", tags=["Eligibility"])
+
+
+def orm_to_dict(obj) -> dict:
+    result = {}
+    for col in obj.__table__.columns:
+        val = getattr(obj, col.name)
+        result[col.name] = val
+    return result
 
 
 @router.post("/check", response_model=EligibilityCheckResponse)
@@ -24,22 +31,22 @@ def check_eligibility(request: EligibilityCheckRequest, db: Session = Depends(ge
     """
     eligibility_service = EligibilityService(db)
 
-    # Get student data
     if request.student_id:
         student = db.query(Student).filter(Student.id == request.student_id).first()
         if not student:
             raise HTTPException(status_code=404, detail="Student not found")
+        student_dict = orm_to_dict(student)
         student_data = StudentCreate(
-            student_id=student.student_id,
-            name=student.name,
-            email=student.email,
-            phone=student.phone,
-            department=student.department,
-            year=student.year,
-            gpa=student.gpa,
-            category=student.category,
-            family_income=student.family_income,
-            gender=student.gender,
+            student_id=str(student_dict.get("student_id", "")),
+            name=str(student_dict.get("name", "")),
+            email=str(student_dict.get("email", "")),
+            phone=student_dict.get("phone"),
+            department=student_dict.get("department"),
+            year=student_dict.get("year"),
+            gpa=student_dict.get("gpa"),
+            category=student_dict.get("category"),
+            family_income=student_dict.get("family_income"),
+            gender=student_dict.get("gender"),
         )
     elif request.student_data:
         student_data = request.student_data
@@ -48,10 +55,8 @@ def check_eligibility(request: EligibilityCheckRequest, db: Session = Depends(ge
             status_code=400, detail="Either student_id or student_data must be provided"
         )
 
-    # Check eligibility
     eligible_scholarships = eligibility_service.check_eligibility(student_data)
 
-    # Save the check if student is registered
     check_id = None
     if request.student_id:
         check = eligibility_service.save_eligibility_check(

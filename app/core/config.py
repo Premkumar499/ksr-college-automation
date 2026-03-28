@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "Scholarship AI System"
     VERSION: str = "1.0.0"
 
-    # Database
-    DATABASE_URL: str = "sqlite:///./scholarship_local.db"
+    # Database - PostgreSQL Configuration
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/scholarship_db"
 
     # Heavy Server (GPU) - RAG & AI Processing
     HEAVY_SERVER_URL: str = "http://localhost:8001"
@@ -15,8 +15,12 @@ class Settings(BaseSettings):
     # Gemini API
     GOOGLE_API_KEY: Optional[str] = None
 
-    # FAISS DB Path
-    FAISS_DB_PATH: str = "./data/embeddings/faiss_db"
+    # Chroma DB Path - separate paths for different embedding models
+    CHROMA_DB_PATH: str = "./data/embeddings/chroma_db"
+    CHROMA_HF_DB_PATH: str = "./data/embeddings/chroma_db_hf"  # For HuggingFace (384-dim)
+    CHROMA_GEMINI_DB_PATH: str = (
+        "./data/embeddings/chroma_db_gemini"  # For Gemini (768-dim)
+    )
 
     # Server Config
     NORMAL_SERVER_HOST: str = "0.0.0.0"

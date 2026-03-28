@@ -6,17 +6,20 @@ from app.core.database import engine, Base
 from app.api import scholarships, chat, eligibility, dashboard, students
 import os
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+db_initialized = False
+try:
+    Base.metadata.create_all(bind=engine)
+    db_initialized = True
+except Exception as e:
+    print(f"Warning: Could not connect to PostgreSQL database: {e}")
+    print("Please ensure PostgreSQL is running and DATABASE_URL is correct in .env")
 
-# Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
     description="Agentic AI System for Scholarship Management",
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,7 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(scholarships.router)
 app.include_router(chat.router)
 app.include_router(eligibility.router)
@@ -37,11 +39,9 @@ app.include_router(students.router)
 async def startup_event():
     from app.services.rag_service import rag_service
 
-    try:
-        rag_service.index_scholarship_data()
-        print("Scholarship data indexed successfully!")
-    except Exception as e:
-        print(f"Warning: Could not index scholarship data: {e}")
+    print("Loading scholarship data...")
+    rag_service.index_scholarship_data()
+    print("Scholarship chatbot is ready!")
 
 
 @app.get("/")
@@ -55,7 +55,12 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    db_status = "connected" if db_initialized else "disconnected"
+    return {
+        "status": "healthy" if db_initialized else "degraded",
+        "database": db_status,
+        "vector_db": "chroma",
+    }
 
 
 @app.get("/frontend")

@@ -11,7 +11,7 @@ router = APIRouter(prefix="/scholarships", tags=["Scholarships"])
 @router.get("/", response_model=List[ScholarshipResponse])
 def list_scholarships(db: Session = Depends(get_db)):
     """Get all active scholarships"""
-    scholarships = db.query(Scholarship).filter(Scholarship.is_active == True).all()
+    scholarships = db.query(Scholarship).filter(Scholarship.is_active).all()
     return scholarships
 
 
@@ -62,6 +62,6 @@ def delete_scholarship(scholarship_id: int, db: Session = Depends(get_db)):
     if not db_scholarship:
         raise HTTPException(status_code=404, detail="Scholarship not found")
 
-    db_scholarship.is_active = False
+    db_scholarship.is_active = bool(False)
     db.commit()
     return {"message": "Scholarship deleted successfully"}
